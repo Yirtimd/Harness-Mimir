@@ -98,7 +98,7 @@ class MonitoringLayer:
     def start_metrics_server(self) -> None:
         ''' Run HTTP-server Prometheus on sattings.metrics_port '''
         from .config import settings
-        start_http_server(settings.metrics_port, registry-self._registry)
+        start_http_server(settings.metrics_port, registry=self._registry)
         log.info('metrics.server_started', port=settings.metrics_port)
 
     def uptime(self) -> float:

@@ -50,7 +50,7 @@ class ShadowExecutor:
         real_fn: Callable[..., Coroutine[Any, Any, Any]],
         shadow_fn: ShadowFn,
         validator: ValidatorFn,
-        state_to_snapshot: Any | None = None
+        state_to_snapshot: Any | None = None,
         **kwargs: Any,
     ) -> ExecutionResult:
         # --- Rollback snapshot -----------------------------------
@@ -70,9 +70,9 @@ class ShadowExecutor:
             passed, reason = validator(shadow_output)
         except Exception as exc:
             shadow_output = None
-            passed, reason = False, f'Shadow raised: {ecx}'
+            passed, reason = False, f'Shadow raised: {exc}'
 
-        shadow_ms = (time.perf_counter() - t0) * 100
+        shadow_ms = (time.perf_counter() - t0) * 1000
         shadow_result = ShadowResult(
             action_name=action_name,
             shadow_output=shadow_output,
@@ -95,9 +95,9 @@ class ShadowExecutor:
 
          # --- Production ---------------------------------------------
 
-         t1 = time.perf_counter()
-         rollback_taken = False
-         try:
+        t1 = time.perf_counter()
+        rollback_taken = False
+        try:
             real_output = await real_fn(**kwargs)
             real_ms = (time.perf_counter() - t1) * 1000
             log.info('production.success', action=action_name,ms=round(real_ms, 2))
@@ -106,12 +106,12 @@ class ShadowExecutor:
             log.error('production.failed', action=action_name, error=str(exc))
 
             # Rollback
-            if snapshot is not None and state_to_snapshot in not None:
+            if snapshot is not None and state_to_snapshot is not None:
                 await self._apply_rollback(state_to_snapshot, snapshot)
                 rollback_taken = True
                 log.warning('rollback.applied', action=action_name)
             
-            raise RunTimeError(f"Production failed, rollback={'applied' if rollback_taken else 'n/a'}") from exc
+            raise RuntimeError(f"Production failed, rollback={'applied' if rollback_taken else 'n/a'}") from exc
 
         return ExecutionResult(
             action_name=action_name,
