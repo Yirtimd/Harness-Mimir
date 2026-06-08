@@ -127,3 +127,4 @@ class ByzantineValidator:
                 duration_ms=round((time.perf_counter() - t) * 1000, 2),
                 provider='error',
             )
+
