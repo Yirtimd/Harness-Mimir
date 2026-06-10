@@ -26,7 +26,7 @@ class EscalationEvent:
     context: dict[str, Any] = field(default_factory=dict)
     ts: float = field(default_factory=time.time)
     resolved: bool = False
-    event_id: str = field(default_factory-lambda: f'event_{init(time.time() * 1000)}')
+    event_id: str = field(default_factory=lambda: f'event_{int(time.time() * 1000)}')
 
 EscalationHandler = Callable[[EscalationEvent], Coroutine[Any, Any, None]]
 
@@ -46,7 +46,7 @@ class EscalationChannel:
 
     async def escalate(
         self, 
-        severity=EscalationSeverity,
+        severity: EscalationSeverity,
         source: str,
         message: str,
         context: dict[str, Any] | None = None,
@@ -62,7 +62,7 @@ class EscalationChannel:
         await asyncio.gather(*[h(event) for h in self._handlers])
 
         if block and severity == EscalationSeverity.CRITICAL:
-            raise RunTimeError(f'[ESCALATION:CRITiCAL] {source}: {message}')
+            raise RuntimeError(f'[ESCALATION:CRITiCAL] {source}: {message}')
         return event
     
     def pending(self) -> list[EscalationEvent]:

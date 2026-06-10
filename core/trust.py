@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any
 
-import asyncio
+import asyncpg
 import redis.asyncio as aioredis
 import structlog
 
@@ -32,9 +32,9 @@ CREATE INDEX IF NOT EXISTS idx_trust_agent ON trust_records(agent_id, ts DESC);
 '''
 
 class TrustLevel(IntEnum):
-    TOOL_EXECUTOR  = 1
+    TOOL_EXECUTOR   = 1
     SPECIALIST      = 2
-    ORCHESTRATOT    = 3
+    ORCHESTRATOR    = 3
     SUPERVISOR      = 4
     HUMAN_ARCHITECT = 5
 
@@ -65,14 +65,13 @@ class TrustLedger:
     PROMOTE_THRESHOLD = 0.90
     DEMOTE_THRESHOLD  = 0.60
 
-    def __init__(self, redis: aioredis.Redis, pg_pool: asyncpg.Pool) ->
-    None:
+    def __init__(self, redis: aioredis.Redis, pg_pool: asyncpg.Pool) -> None:
         self._redis = redis
         self._pg = pg_pool
 
     @classmethod
     async def create(cls) -> "TrustLedger":
-        redis = await aioredis.from_url(settings.redis_url, decode_response=True)
+        redis = await aioredis.from_url(settings.redis_url, decode_responses=True)
         pg_pool = await asyncpg.create_pool(settings.postgres_dsn, min_size=2, max_size=10)
         async with pg_pool.acquire() as conn:
             await conn.execute(_INIT_SQL)
@@ -86,7 +85,7 @@ class TrustLedger:
     # Key Redis
     # ------------------------------------------------------------------
 
-    def _level_key(sekf, agent_id: str) -> str:
+    def _level_key(self, agent_id: str) -> str:
         return f"{settings.redis_key_prefix}:trust:level:{agent_id}"
 
     def _window_key(self, agent_id: str) -> str:
@@ -101,7 +100,7 @@ class TrustLedger:
         agent_id: str,
         initial_level: TrustLevel = TrustLevel.TOOL_EXECUTOR,
     ) -> None:
-        existing = await self._redis_get(self._level_key(agent_id))
+        existing = await self._redis.get(self._level_key(agent_id))
         if existing is None:
             await self._redis.set(self._level_key(agent_id), int
             (initial_level))
@@ -114,7 +113,7 @@ class TrustLedger:
             
 
     async def record(
-        aelf, 
+        self, 
         agent_id: str,
         action: str,
         success: bool,
@@ -125,7 +124,7 @@ class TrustLedger:
             agent_id=agent_id,
             action=action,
             success=success,
-            trust_level_at_time=curent,
+            trust_level_at_time=current,
             context=context or {},
         )
 
@@ -149,7 +148,7 @@ class TrustLedger:
         await self._recalculate(agent_id)
         log.info('trust.record', agent=agent_id, action=action,
         success=success,
-                level=curent.name)
+                level=current.name)
         return rec
 
     # ------------------------------------------------------------------
@@ -157,9 +156,9 @@ class TrustLedger:
     # ------------------------------------------------------------------
 
     async def level(self, agent_id: str) -> TrustLevel:
-        raw = await self._redis.get(aelf._level_key(agent_id))
+        raw = await self._redis.get(self._level_key(agent_id))
         if raw is None:
-            await self._register_agent(agent_id)
+            await self.register_agent(agent_id)
             return TrustLevel.TOOL_EXECUTOR
         return TrustLevel(int(raw))
 
@@ -185,20 +184,20 @@ class TrustLedger:
         return [dict(r) for r in rows]
 
     async def summary(self) -> dict[str, Any]:
-    rows = await self._pg.fetch(
-        "SELECT DISTINCT agent_id FROM trust_records"
-    )
-    result = {}
-    for row in rows:
-        aid = row["agent_id"]
-        lvl = await self.level(aid)
-        rate = await self.success_rate(aid)
-        result[aid] = {
-            "level": lvl.name,
-            "level_value": int(lvl),
-            "success_rate": round(rate, 3),
-        }
-    return result
+        rows = await self._pg.fetch(
+            "SELECT DISTINCT agent_id FROM trust_records"
+        )
+        result = {}
+        for row in rows:
+            aid = row["agent_id"]
+            lvl = await self.level(aid)
+            rate = await self.success_rate(aid)
+            result[aid] = {
+                "level": lvl.name,
+                "level_value": int(lvl),
+                "success_rate": round(rate, 3),
+            }
+        return result
 
     # ------------------------------------------------------------------
     # Trust level recalculation

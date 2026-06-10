@@ -62,7 +62,7 @@ class TestCall:
     @pytest.mark.asyncio
     async def test_call_success(self, registry, read_tool):
         registry.register(read_tool)
-        result = await registry.call('read_file', trus_level=1)
+        result = await registry.call('read_file', trust_level=1)
         assert result == 'ok'
 
     @pytest.mark.asyncio

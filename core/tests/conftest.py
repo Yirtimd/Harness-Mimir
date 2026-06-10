@@ -1,6 +1,7 @@
 import asyncio
 import pytest
-import fakeredis.aioredis as fakeredis
+from fakeredis import FakeServer
+from fakeredis.aioredis import FakeRedis
 import asyncpg
 import pytest_asyncio
 
@@ -16,8 +17,8 @@ def event_loop():
 @pytest.fixture
 async def fake_redis():
     ''' Fake redis without actual server'''
-    server = fakeredis.FakeServer()
-    client = fakeredis.FakeRedis(server=server, decode_response=True)
+    server = FakeServer()
+    client = FakeRedis(server=server, decode_responses=True)
     yield client
     await client.aclose()
 
@@ -39,13 +40,13 @@ async def pg_pool():
     # Isolations scheme for the test
     schema = f'test_{id(pool)}'
     async with pool.acquire() as conn:
-        await conn.execute(f'CREATE SCHEMA IF NOT EXIST {schema}')
+        await conn.execute(f'CREATE SCHEMA IF NOT EXISTS {schema}')
         await conn.execute(f'SET search_path TO {schema}')
 
     yield pool
 
     async with pool.acquire() as conn:
-        await conn.execute(f'DROP SCHEMA IF EXIST {schema} CASCADE')
+        await conn.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
     await pool.close()
 
 @pytest.fixture

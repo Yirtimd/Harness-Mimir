@@ -15,7 +15,7 @@ Trustlevel = int
 class ToolDefinition:
     ''' Decription single tool in registry '''
     name: str
-    decription: str
+    description: str
     min_trust_level: Trustlevel # minimum level for call tools
     handler: Callable[..., Coroutine[Any, Any, Any]] # async-function execute
     is_reversible: bool = True # is possible undo to action
@@ -38,7 +38,7 @@ class MCPRegistry:
         if tool.name in self._tools:
             raise ValueError(f'Tool {tool.name} already registered')
         self._tools[tool.name] = tool
-        log.info('tool.registered', name=name, min_trust=tool.min_trust_level)
+        log.info('tool.registered', name=tool.name, min_trust=tool.min_trust_level)
 
     def unregister(self, name: str) -> None:
         ''' Remove tool from registry '''
@@ -51,7 +51,7 @@ class MCPRegistry:
 
     def available_for(self, trust_level: Trustlevel) -> list[ToolDefinition]:
         ''' Tools, available at the current trust level '''
-        return [t for in self._tools.values() if t.min_trust_level <= trust_level]
+        return [t for t in self._tools.values() if t.min_trust_level <= trust_level]
 
     def get(self, name: str) -> ToolDefinition | None:
         return self._tools.get(name)
@@ -72,18 +72,18 @@ class MCPRegistry:
         tool = self._tools.get(name)
         if tool is None:
             raise KeyError(f'Tool {name} not found in registry')
-        if trusl_level < tool.min_trust_level:
+        if trust_level < tool.min_trust_level:
             log.warning(
                 'tool.permission_denied',
-                name=name.
+                name=name,
                 required=tool.min_trust_level,
-                got=trusl_level
+                got=trust_level
             )
-            raise PermissonError(
+            raise PermissionError(
                 f'Tool {name} requires trust level {tool.min_trust_level}, '
-                f'got {trusl_level}'
+                f'got {trust_level}'
             )
-        log.info('tool.call', name=name, trusl_level=trusl_level)
+        log.info('tool.call', name=name, trusl_level=trust_level)
         result = await tool.handler(**kwargs)
         log.info('tool.success', name=name)
         return result
@@ -93,7 +93,7 @@ class MCPRegistry:
         return [
             {
                 'name': t.name,
-                'description': t.decription,
+                'description': t.description,
                 'min_trust_level': t.min_trust_level,
                 'is_reversible': t.is_reversible,
                 'tags': t.tags

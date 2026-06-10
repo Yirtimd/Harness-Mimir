@@ -22,13 +22,13 @@ class JudgeVote:
     reasoning: str
     confidence: float  #0.0 - 1.0
     duration_ms: float = 0.0
-    provider: str = 'unknow'  # 'antrhopic' | 'openai' | 'google' | 'internal'
+    provider: str = 'unknown'  # 'anthropic' | 'openai' | 'google' | 'internal'
 
 @dataclass
 class ValidationResult:
     decision: ValidationDecision
     votes: list[JudgeVote]
-    approved_count: int
+    approve_count: int
     reject_count: int
     consensus_ratio: float
     weighted_confidence: float  # Average confidence * vote
@@ -36,7 +36,7 @@ class ValidationResult:
 
     @property
     def is_unanimous(self) -> bool:
-        return self.approved_count == 0 or self.reject_count == 0
+        return self.approve_count == 0 or self.reject_count == 0
     
     @property
     def providers(self) -> list[str]:
@@ -74,7 +74,7 @@ class ByzantineValidator:
         tasks = [self._run_judge(jid, fn, **kwargs) for jid, fn in self._judges]
         votes: list[JudgeVote] = await asyncio.gather(*tasks)
 
-        approve = sum(q for v in votes if v.approved)
+        approve = sum(1 for v in votes if v.approved)
         reject = len(votes) - approve
         ratio = approve / len(votes)
 
@@ -94,7 +94,7 @@ class ByzantineValidator:
         result = ValidationResult(
             decision=decision,
             votes=votes,
-            approved_count=approve,
+            approve_count=approve,
             reject_count=reject,
             consensus_ratio=round(ratio, 3),
             weighted_confidence=round(weighted, 3),

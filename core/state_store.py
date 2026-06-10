@@ -40,8 +40,8 @@ class StateStore:
 
     def __init__(
         self,
-        redis=aioredis.Redis,
-        pg_pool=asyncpg.Pool,
+        redis: aioredis.Redis,
+        pg_pool: asyncpg.Pool,
         session_id: str = 'default',
     ) -> None:
         self._redis = redis
@@ -55,7 +55,7 @@ class StateStore:
     @classmethod
     async def create(cls, session_id: str = 'default') -> 'StateStore':
         redis = await aioredis.from_url(settings.redis_url,
-        decode_response=True)
+        decode_responses=True)
         pg_pool = await asyncpg.create_pool(settings.postgres_dsn,
         min_size=2, max_size=10)
         async with pg_pool.acquire() as conn:
@@ -71,7 +71,7 @@ class StateStore:
     # ------------------------------------------------------------------
 
     def _rkey(self, key: str) -> str:
-        return f'{settings.redis_key_prefix} : {self._session_id} : {key}'
+        return f'{settings.redis_key_prefix}:{self._session_id}:{key}'
 
     # ------------------------------------------------------------------
     # CRUD
@@ -129,7 +129,7 @@ class StateStore:
         values = await self._redis.mget(*keys)
         prefix_len = len(f"{settings.redis_key_prefix}:{self._session_id}:")
         return {
-            k[prefix_len:]:json.loads(v)
+            str(k)[prefix_len:]: json.loads(v)
             for k, v in zip(keys, values)
             if v is not None
         }
@@ -142,9 +142,9 @@ class StateStore:
         self, 
         key: str | None = None,
         last_n: int = 50,
-    ) -> list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         ''' Last N entries history (optionally by key) '''
-        if keys:
+        if key:
             rows = await self._pg.fetch(
                 """
                 SELECT ts, operation, key, old_value, new_value
@@ -155,7 +155,7 @@ class StateStore:
                 self._session_id, key, last_n,
             )
         else:
-            rows = await. self._pg.fetch(
+            rows = await self._pg.fetch(
                 """
                 SELECT ts, operation, key, old_value, new_value
                 FROM state_history
