@@ -205,14 +205,15 @@ class TrustLedger:
 
     async def _recalculate(self, agent_id: str) -> None:
         window = await self._redis.lrange(self._window_key(agent_id), 0, -1)
-        if len(window) < 5:
+        # A level change (up OR down) requires a full window of evidence.
+        if len(window) < 10:
             return
 
         rate = sum(int(x) for x in window) / len(window)
         current = await self.level(agent_id)
 
         new_level = current
-        if rate > self.PROMOTE_THRESHOLD and len(window) >=10:
+        if rate > self.PROMOTE_THRESHOLD:
             if current < TrustLevel.SUPERVISOR:
                 new_level = TrustLevel(current + 1)
         elif rate < self.DEMOTE_THRESHOLD:
@@ -221,5 +222,8 @@ class TrustLedger:
 
         if new_level != current:
             await self._redis.set(self._level_key(agent_id), int(new_level))
+            # After a level change reset the window:
+            # the agent must earn another full window to move again.
+            await self._redis.delete(self._window_key(agent_id))
             log.info('trust.level_changed', agent=agent_id, from_=current.name,
              to=new_level, rate=round(rate, 3))

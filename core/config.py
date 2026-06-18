@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +21,19 @@ class Settings(BaseSettings):
 
     # LLM (для evals)
     anthropic_api_key: str = ""
+
+    # OpenRouter (LLM-судья для evals)
+    # Имя поля openrouter_api_key само совпадает с OPENROUTER_API_KEY в .env.
+    # Для BASE_URL и BASE_MODEL задаём псевдонимы (validation_alias).
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        validation_alias="BASE_URL",
+    )
+    judge_model: str = Field(
+        default="google/gemini-2.5-flash",
+        validation_alias="BASE_MODEL",
+    )
 
 
 settings = Settings()
